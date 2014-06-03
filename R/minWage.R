@@ -1,5 +1,5 @@
-#install.packages("urca",weights","plotrix","gridExtra","tseries","car", "stargazer", "forecast")
-install.packages("urca")
+#install.packages("urca","weights","plotrix","gridExtra","tseries","car", "stargazer", "forecast")
+
 
 #---Load necessary libraries----------------#
 setwd("~/Desktop/ECON322Paper/R")
@@ -13,6 +13,7 @@ library(car)
 library(stargazer)
 library(tools)
 library(urca)
+library(gplots)
 #--------------------------------#
 #--------Functions---------------#
 # Reads in CPS data
@@ -337,8 +338,21 @@ names(regData)<-nam
 rm(nam,temp)
 
 # Check for stationarity
+png("figures/ADF.png",units="px",height=450,width=920)
+
+par(mfrow=c(1,2))
 adf1<-summary(ur.df(regData[,1],type="drift")) # include intercept since mean is not 0
-tex2pdf(capture.output(adf1),title="Augmented Dickey FUller test: Unemployment rate",2,"Adf1","figures")
+textplot(capture.output(adf1)[c(-1:-10)],cex=1)
+title("Augmented Dickey Fuller Test\nfor the Unemployment Rate")
+
+adf2<-summary(ur.df(regData[,4],type="none")) # include intercept since mean is not 0
+textplot(capture.output(adf2)[c(-1:-1)],cex=1)
+title("Augmented Dickey Fuller Test for the Percent Growth\nof the Food Services and Drinking Places Industry in PA")
+
+par(mfrow=c(1,1))
+
+dev.off()
+
 # Regression using the unemployment rate as dependent variable
 mod<-lm(unemp~tslag(unemp,1) + tslag(foodIndGrowth,2) + crimonthDummy + tslag(minwageDummy,1),regData)
 summary(mod)
@@ -375,3 +389,6 @@ png("figures/SCResid.png",units="px",height=250,width=350)
 acf(mod$residuals,main="Serial correlation of the model's residuals")
 
 dev.off()
+
+# Evaluate the 1.33% increase in unemployment
+sum(dPA[dPA$PRML %in% c(1,2) & dPA$YYYYMM==201212,11])*0.0133
