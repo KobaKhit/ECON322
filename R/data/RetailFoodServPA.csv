@@ -1,0 +1,11 @@
+"Gross Domestic Product by State (millions of current dollars)"
+"Levels" 
+"Bureau of Economic Analysis" 
+""
+"Fips","Area","IndCode","Industry","1997","1998","1999","2000","2001","2002","2003","2004","2005","2006","2007","2008","2009","2010","2011","2012"
+"42000","Pennsylvania","35","      Retail trade",24052,25531,26102,26425,27264,27928,29554,29898,30959,31697,31986,30567,31251,32403,33309,34392
+"42000","Pennsylvania","76","          Food services and drinking places",5712,6230,6803,7329,7563,7940,8132,8542,8952,9078,9763,9681,9988,10643,11312,"(NA)"
+"Legend / Footnotes:"
+"Note-- NAICS Industry detail is based on the 2002 North American Industry Classification System (NAICS)."
+"(NA) Not available."
+"Last updated: June 6, 2013 - new estimates for 2012 and revised estimates for 2009 - 2011."
