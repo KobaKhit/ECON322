@@ -1,15 +1,27 @@
-#install.packages("urca","weights","plotrix","gridExtra","tseries","car", "stargazer", "forecast")
+# Effect of the Increase of the Minimum Wage on the Food Services and Drinking Places 
+# Industry in Pennsylvania
+#
+# Author: Koba Khitalishvili
+# Date: June 1st 2014
+#--------------------------------#
+
+# To convert statistical output to pretty tables in pdf format you will need a 
+# local instalation of Tex which you can obtain here 
+# http://www.tug.org/texlive/
+# Everything else runs without a need of any external software
+
+#--------------------------------#
+# Uncomment next line if you do not have any of the packages installed 
+# install.packages("urca","plotrix","gridExtra","tseries","car", "stargazer","gplots")
 
 
-#---Load necessary libraries----------------#
+#---Load necessary libraries-----#
+# Set the R folder as your working directory. In my case it is
 setwd("~/Desktop/ECON322Paper/R")
-library(weights)
 library(plotrix)
 library(ggplot2)
 library(gridExtra)
-library(lmtest)
 library(tseries)
-library(car)
 library(stargazer)
 library(tools)
 library(urca)
@@ -70,31 +82,33 @@ read.tcsv <- function(file, header=TRUE, sep=",",quote = "\"", ...) {
   
 }
 
-# Function that saves tables as pdf files 
-tex2pdf<-function(table,title="",tableNumber=1,file,targetDir=getwd()){
+# Function that saves stat output as pdf files 
+tex2pdf<-function(table,title="",tableNumber=1,fileName,targetDir=getwd()){
   tex<-stargazer(table,type = "latex",title=title) 
-  tableNum<-paste("\\setcounter{table}{",tableNumber,"}",sep="")
+  tableNum<-paste("\\setcounter{table}{",tableNumber-1,"}",sep="")
   # save a latex file to Sweave
   cat(c("\\documentclass{article}
       \\begin{document}
       \\SweaveOpts{concordance=TRUE}\n",
         tableNum,
         tex,
-        "\n\\end{document} "),sep="\n",file=paste(targetDir,"/",file,".Rnw",sep=""))
+        "\n\\end{document} "),sep="\n",file=paste(targetDir,"/",fileName,".Rnw",sep=""))
   # Convert to pdf in the figures directory (texipdf does not have out option)
   wd<-getwd()
   setwd(targetDir)
-  Sweave(paste(file,".Rnw",sep=""))
-  texi2pdf(paste(file,".tex",sep=""))
-  file.remove(paste(file,".tex",sep=""),paste(file,".aux",sep=""),
-              paste(file,".log",sep=""),
-              paste(file,"-concordance.tex",sep=""),
-              paste(file,".Rnw",sep=""))
+  Sweave(paste(fileName,".Rnw",sep=""))
+  texi2pdf(paste(fileName,".tex",sep=""))
+  file.remove(paste(fileName,".tex",sep=""),paste(fileName,".aux",sep=""),
+              paste(fileName,".log",sep=""),
+              paste(fileName,"-concordance.tex",sep=""),
+              paste(fileName,".Rnw",sep=""))
   setwd(wd)
-  rm(wd)
+  rm(wd,tex,targetDir,fileName)
 }
 #------------------------------------#
+#------------------------------------#
 # Fixes one of the data files that is missing several default id columns. Already done.
+
 # file_list <- list.files("data/CPSdata",full.names=TRUE)
 # df<-read.table(file_list[9],header=TRUE,sep=",")
 # df<-df[,-1]
@@ -116,13 +130,21 @@ PA<-d$GESTCEN==23
 dPA<-d[PA,]
 head(dPA)
 
-levels(factor(dPA$PTERNHLY))
+rm(PA)
 
-# Histogram of hourly wages in PA in April for years 2007,2008,2009, and 2011
-# Save the histogram in the figures folder
-png("figures/HistWages.png",units="px",height=600,width=950)
+# Number of people that reported their wage in food services and drinking places industry in PA
+reported<-sum(dPA[dPA$PTERNHLY!=-0.01,]$PWCMPWGT)/length(unique(dPA$YYYYMM))
+reported_not<-sum(dPA[dPA$PTERNHLY==-0.01,]$PWCMPWGT)/length(unique(dPA$YYYYMM))
+reported/(reported+reported_not) # so we have wage data on 17% percents of employees in the industry in question
+
+rm(reported,reported_not)
+
+# Histograms of hourly wages in PA in April for years 2007,2008,2009, and 2011
+
+png("figures/HistWages.png",units="px",height=600,width=950) # Save the histogram in the figures folder
 
 par(mfrow=c(2,2),mai=c(1,1,0.6,0.1))
+
 for(year in c(200704,200804,200904,201104)) {
   wagesPA<-dPA[dPA$YYYYMM==year & dPA$PRMLR==1 & dPA$PTERNHLY>-0.01,]$PTERNHLY # hourly wages
   wts<-dPA[dPA$YYYYMM==year & dPA$PRMLR==1 & dPA$PTERNHLY>-0.01,]$PWCMPWGT # weights
@@ -136,10 +158,13 @@ for(year in c(200704,200804,200904,201104)) {
   year_str<-substr(as.character(year),1,4)
   title(paste(c("Distribution of restaurant workers\nby wage in PA in April",year_str),collapse=" "),cex.main=2)
   legend("topleft","$7.25",lty="dashed",col="red",cex=1.7,bty="n")
+  
+  
 }
 par(mfrow=c(1,1))
 
 dev.off()
+rm(year,year_str,wts,wagesPA)
 
 # Fraction of workers that work at or above $7.25(new minimum wage)
 k1<-data.frame(k1=rate(dPA,1,dPA$PTERNHLY>=7.25,-0.01))
@@ -150,6 +175,7 @@ k2<-data.frame(k2=rate(dPA,1,(dPA$PTERNHLY < 7.25 & dPA$PTERNHLY>-0.01),-0.01))
 k2ts<-ts(k2$k2,start=c(2005,1),frequency=12) #convert to time series
 
 # Plot the fraction of workers that work at or above $7.25(new minimum wage)
+# minus seasonal variations
 deck1<-decompose(k1ts)
 plot(deck1)
 grBreaks<-dput(rownames(k1)[seq(1, length(rownames(k1)), 3)])
@@ -167,15 +193,16 @@ k1p1<-ggplot(k1,aes(x=rownames(k1),y=data.frame(k1ts-deck1$seasonal)$k1*100))+
         axis.title=element_text(size=14,face="bold"))
 
 # Plot the fraction of workers that work below $7.25(new minimum wage)
+# minus seasonal variations
 deck2<-decompose(k2ts)
 plot(deck2)
 grBreaks<-dput(rownames(k2)[seq(1, length(rownames(k2)), 3)])
-k2p1<-ggplot(k2,aes(x=rownames(k2),y=data.frame(k2ts-deck$seasonal)$k2*100))+
+k2p1<-ggplot(k2,aes(x=rownames(k2),y=data.frame(k2ts-deck2$seasonal)$k2*100))+
   ggtitle("Below $7.25") +
   theme(plot.title = element_text(size=18,face="bold"))+
   xlab("Period")+ylab("Percent of employed")+
   geom_point()+
-  geom_line(aes(y=data.frame(k2ts-deck$seasonal)$k2*100,group=1))+
+  geom_line(aes(y=data.frame(k2ts-deck2$seasonal)$k2*100,group=1))+
   geom_line(aes(y=deck2$trend*100,group=1),col="blue")+
   scale_x_discrete(breaks=grBreaks,labels=grBreaks) +
   scale_y_continuous(limits = c(10, 100)) +
@@ -189,17 +216,19 @@ grid.arrange(k1p1,k2p1,nrow=2)
 dev.copy(png,"figures/aboveMinWage.png",units="px",height=400,width=600)
 dev.off()
 
-# Unemployment rate in the Food industry in PA
+rm(k1,k1ts,k2,k2ts,k1p1,k2p1)
+
+# Unemployment rate in the Food industry in PA unadjusted
 unemp<-data.frame(unemp=rate(dPA,2,dPA$PTERNHLY>-0.02,-0.02))
 unempts<-ts(unemp$unemp,start=c(2005,1),frequency=12)
 decunemp<-decompose(unempts)
 
-# Employment rate in the Food industry in PA
+# Employment rate in the Food industry in PA unadjusted
 emp<-data.frame(emp=rate(dPA,1,dPA$PTERNHLY>-0.02,-0.02))
 empts<-ts(emp$emp,start=c(2005,1),frequency=12)
 decemp<-decompose(empts)
 
-# Plot the unemployment rate in PA
+# Plot the unemployment rate in PA # minus seasonal variations
 unempp<-ggplot(unemp,aes(x=rownames(unemp),y=data.frame(unempts-decunemp$seasonal)$unemp*100))+
   ggtitle("Unemployment rate in the Food Services and Drinking Places\nindustry in PA") +
   geom_point() +
@@ -212,7 +241,7 @@ unempp<-ggplot(unemp,aes(x=rownames(unemp),y=data.frame(unempts-decunemp$seasona
         axis.text=element_text(size=12),
         axis.title=element_text(size=14,face="bold"))
 
-# Plot the employment rate in PA
+# Plot the employment rate in PA # minus seasonal variations
 empp<-ggplot(emp,aes(x=rownames(emp),y=data.frame(empts-decemp$seasonal)$emp*100)) +
   ggtitle("Employment rate in the Food Services and Drinking Places\nindustry in PA") +
   theme(plot.title = element_text(size=18,face="bold"))+
@@ -231,11 +260,14 @@ grid.arrange(empp,unempp,nrow=2)
 dev.copy(png,"figures/EmpRates.png",units="px",height=400,width=600)
 dev.off()
 
+rm(emp,empp,unempp,decemp,decunemp,deck1,deck2,empts,unempts)
+
 # Checking histogram of unemployment rate for normality
 png("figures/UnempHist.png",units="px",height=400,width=800) #save plot as png
+
 par(mfrow=c(1,2))
 
-h<-hist(unemp$unemp*100,
+hist(unemp$unemp*100,
         freq=F,
         breaks=8,
         ylim=c(0,0.14),
@@ -254,18 +286,16 @@ qqline(unemp$unemp*100)
 par(mfrow=c(1,1))
 
 dev.off()
+rm(q,sd,m)
 
 # Checking for normality of the unemployment rate using the Shapiro test
-shapiro.test(unemp$unemp)
+shapiro.test(unemp$unemp) # p>0.05 so I cannot reject the null that the sample is normally distributed 
 
 # Creating dummy variables for the regression
 regData<-data.frame(unemp*100)
 
-crimonthDummy<-c(rep(0,35),rep(1,19),rep(0,42)) # crisis months
-regData$crimonthDummy<-crimonthDummy
-
-minwageDummy<-c(rep(0,30),rep(1,66)) # months after min wage increase
-regData$minwageDummy<-minwageDummy
+regData$crimonthDummy<-c(rep(0,35),rep(1,19),rep(0,42)) # crisis months
+regData$minwageDummy<-c(rep(0,30),rep(1,66)) # months after min wage increase
 
 # Read in food and drinking places industry annual output for PA
 foodSalesPA<-read.tcsv("data/RetailFoodServPA.csv")[c(-1:-2,-18),5:7][,-2]
@@ -277,11 +307,13 @@ foodSales<-read.table("data/RetailFoodServ.csv",sep=",")
 foodSales[,2]<-as.numeric(gsub(",","", foodSales[,2]))
 
 # Calculate the annual food and drinking places industry output for the US
+# using monthly data
 foodSalesPA<-data.frame(foodSalesPA,US=0)
 for(i in 0:6){
   start<-13+12*i
   end<-start+11
   foodSalesPA[nrow(foodSalesPA)-i,3]<-sum(as.numeric(as.character(foodSales[start:end,2])))
+  rm(start,end)
 }
 
 # Compare food and drinking places industry output in the US and in PA
@@ -304,11 +336,14 @@ cPA2<-ggplot(foodSalesPA[foodSalesPA$US>0,],aes(x=foodSalesPA[foodSalesPA$US>0,1
 corr<-cor(foodSalesPA[foodSalesPA$US>0,2:3])[1,2]
 
 grid.arrange(cPA2,cPA1,nrow=2, left=paste("Correlation =",round(corr,4),sep=" "))
+
 # Save plot
 dev.copy(png,"figures/FoodOutput.png",units="px",height=400,width=600)
 dev.off()
 
-# Calculate the percentage growth of the food serv and drink pl industry output in the US
+rm(cPA1,cPA2,corr)
+
+# Calculate the monthly percentage growth of the food serv and drink pl industry output in the US
 regData$foodIndGrowth<-rev((foodSales[-nrow(foodSales),2]-foodSales[-1,2]) / foodSales[1:nrow(foodSales)-1,2])*100
 
 # Plot foodIndGrowth
@@ -326,34 +361,42 @@ foodIndGrowthp<-ggplot(regData,aes(x=rownames(regData),y=regData[,4]))+
 dev.copy(png,"figures/FoodOutputMonth.png",units="px",height=300,width=600)
 dev.off()
 
-# Descriptive statistics of regression data
+rm(foodIndGrowthp,i,grBreaks)
+
+# Save descriptive statistics of regression data to a pdf
 nam<-names(regData)
 temp<-regData
 regData[,2]<-as.factor(regData[,2])
 regData[,3]<-as.factor(regData[,3])
 names(regData)[c(1,4)]<-c("Unemployment rate", "Food services and drinking places industry growth, %")
+
 tex2pdf(regData[-96:-95,],title="Regression data descriptive statistics",1,"sum","figures")
+
 regData<-temp
 names(regData)<-nam
+
 rm(nam,temp)
 
-# Check for stationarity
+# Check for stationarity of continuous variables(unemp rate & foodIndGrowth)
 png("figures/ADF.png",units="px",height=450,width=920)
 
 par(mfrow=c(1,2))
+
 adf1<-summary(ur.df(regData[,1],type="drift")) # include intercept since mean is not 0
 textplot(capture.output(adf1)[c(-1:-10)],cex=1)
 title("Augmented Dickey Fuller Test\nfor the Unemployment Rate")
 
-adf2<-summary(ur.df(regData[,4],type="none")) # include intercept since mean is not 0
-textplot(capture.output(adf2)[c(-1:-1)],cex=1)
+adf2<-summary(ur.df(regData[,4],type="none")) # dont include intercept since mean
+textplot(capture.output(adf2)[c(-1:-10)],cex=1)
 title("Augmented Dickey Fuller Test for the Percent Growth\nof the Food Services and Drinking Places Industry in PA")
 
 par(mfrow=c(1,1))
 
 dev.off()
 
-# Regression using the unemployment rate as dependent variable
+rm(adf1,adf2)
+
+# AR(2) multivariate regression using the unemployment rate as dependent variable
 mod<-lm(unemp~tslag(unemp,1) + tslag(foodIndGrowth,2) + crimonthDummy + tslag(minwageDummy,1),regData)
 summary(mod)
 
@@ -361,11 +404,11 @@ summary(mod)
   #Add appropriate names to variables
 names(mod$coefficients)<-c("(Intercept)",
                            "Unemployment rate(1)",
-                           "FoodIndGrowth(2)",
+                           "USFoodIndGrowth(2)",
                            "CrisisMonth",
                            "MinimumWage(1)")
   # create table in latex
-tex2pdf(mod,title="Regression output",2,"reg","figures")
+tex2pdf(mod,title="Regression output",3,"reg","figures")
 
 # Autocorrelation in the variables
 png("figures/SCVars.png",units="px",height=380,width=800) #save plot as png
@@ -380,15 +423,44 @@ dev.off()
 
 # Plot the residuals of the model
 png("figures/Resid.png",units="px",height=380,width=800)
+
 plot(mod$residuals,main="Residuals of the model", ylab="Residuals")
 abline(h=0,lty=2)
 
 dev.off()
+
 # Test for autocorellation in the residuals of the model
-png("figures/SCResid.png",units="px",height=250,width=350)
-acf(mod$residuals,main="Serial correlation of the model's residuals")
+png("figures/SCResid.png",units="px",height=350,width=480)
+
+acf(mod$residuals,main="")
+title("Serial correlation of the model's residuals",cex.main=0.8)
 
 dev.off()
 
-# Evaluate the 1.33% increase in unemployment
+# Evaluate the 1.33% increase in unemployment in terms of number of people
 sum(dPA[dPA$PRML %in% c(1,2) & dPA$YYYYMM==201212,11])*0.0133
+
+# Try to account for business cycle using the US GDP growth
+readLines("data/USMonthlyGDP.csv",n=5)
+USGDP<-read.csv("data/USMonthlyGDP.csv",header=FALSE,sep=",",quote="\"",skip=3)
+USGDP[,2]<-as.numeric(gsub("\\.|T","",USGDP[,2]))*10 # clean data and scale to billion dollars
+USGDP$PerGrowth<-c((USGDP[-97,2]-USGDP[-1,2])/USGDP[-1,2]*100,0)
+
+regData$USGDPGrowth<-USGDP[-nrow(USGDP),]$PerGrowth
+
+cor(regData[,4],regData[,5])
+
+mo<-lm(unemp~tslag(unemp,1) + tslag(foodIndGrowth,2) + tslag(USGDPGrowth,4) +  tslag(minwageDummy,1),regData)
+summary(mo)
+
+names(mo$coefficients)<-c("(Intercept)",
+                           "Unemployment rate(1)",
+                           "USFoodIndGrowth(2)",
+                           "USGDPGrowth(4)",
+                           "CrisisMonth",
+                           "MinimumWage(1)")
+
+# Does not change the MinwageDummy coefficient and the adjusted R-squared much.
+# So stick with the initial regression model.
+
+# End
