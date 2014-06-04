@@ -461,6 +461,6 @@ names(mo$coefficients)<-c("(Intercept)",
                            "MinimumWage(1)")
 
 # Does not change the MinwageDummy coefficient and the adjusted R-squared much.
-# So stick with the initial regression model.
+# So stick with the initial regression model. OK.
 
 # End
