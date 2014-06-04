@@ -5,7 +5,7 @@
 # Date: June 1st 2014
 #--------------------------------#
 
-# To convert statistical output to pretty tables in pdf format you will need a 
+# To convert statistical output to pretty tables in pdf format in R you will need a 
 # local instalation of Tex which you can obtain here 
 # http://www.tug.org/texlive/
 # Everything else runs without a need of any external software
@@ -13,7 +13,6 @@
 #--------------------------------#
 # Uncomment next line if you do not have any of the packages installed 
 # install.packages("urca","plotrix","gridExtra","tseries","car", "stargazer","gplots")
-
 
 #---Load necessary libraries-----#
 # Set the R folder as your working directory. In my case it is
@@ -82,7 +81,7 @@ read.tcsv <- function(file, header=TRUE, sep=",",quote = "\"", ...) {
   
 }
 
-# Function that saves stat output as pdf files 
+# Function that saves statistical output as pdf files 
 tex2pdf<-function(table,title="",tableNumber=1,fileName,targetDir=getwd()){
   tex<-stargazer(table,type = "latex",title=title) 
   tableNum<-paste("\\setcounter{table}{",tableNumber-1,"}",sep="")
@@ -117,7 +116,6 @@ tex2pdf<-function(table,title="",tableNumber=1,fileName,targetDir=getwd()){
 # write.table(df,file_list[9],col.names=TRUE,sep=",")
 # rm(df)
 #------------------------------------#
-
 #----Analysis------------------------#
 
 # Read data in
@@ -357,7 +355,9 @@ foodIndGrowthp<-ggplot(regData,aes(x=rownames(regData),y=regData[,4]))+
   theme(axis.text.x=element_text(angle = 75, hjust = 1),
         axis.text=element_text(size=12),
         axis.title=element_text(size=14,face="bold"))
+
 # Save plot
+foodIndGrowthp
 dev.copy(png,"figures/FoodOutputMonth.png",units="px",height=300,width=600)
 dev.off()
 
@@ -407,7 +407,7 @@ names(mod$coefficients)<-c("(Intercept)",
                            "USFoodIndGrowth(2)",
                            "CrisisMonth",
                            "MinimumWage(1)")
-  # create table in latex
+  # create table in latex and save to pdf
 tex2pdf(mod,title="Regression output",3,"reg","figures")
 
 # Autocorrelation in the variables
@@ -440,7 +440,7 @@ dev.off()
 # Evaluate the 1.33% increase in unemployment in terms of number of people
 sum(dPA[dPA$PRML %in% c(1,2) & dPA$YYYYMM==201212,11])*0.0133
 
-# Try to account for business cycle using the US GDP growth
+# Try to account for business cycle using the US GDP growth instead of crisismonthDummy
 readLines("data/USMonthlyGDP.csv",n=5)
 USGDP<-read.csv("data/USMonthlyGDP.csv",header=FALSE,sep=",",quote="\"",skip=3)
 USGDP[,2]<-as.numeric(gsub("\\.|T","",USGDP[,2]))*10 # clean data and scale to billion dollars
@@ -450,17 +450,20 @@ regData$USGDPGrowth<-USGDP[-nrow(USGDP),]$PerGrowth
 
 cor(regData[,4],regData[,5])
 
-mo<-lm(unemp~tslag(unemp,1) + tslag(foodIndGrowth,2) + tslag(USGDPGrowth,4) +  tslag(minwageDummy,1),regData)
-summary(mo)
+mod2<-lm(unemp~tslag(unemp,1) + tslag(foodIndGrowth,2) + tslag(USGDPGrowth,4) +  tslag(minwageDummy,1),regData)
+summary(mod2)
 
-names(mo$coefficients)<-c("(Intercept)",
+names(mod2$coefficients)<-c("(Intercept)",
                            "Unemployment rate(1)",
                            "USFoodIndGrowth(2)",
                            "USGDPGrowth(4)",
-                           "CrisisMonth",
                            "MinimumWage(1)")
+  # create table in latex and save to pdf
+tex2pdf(mod2,title="Regression output with USGDPGrowth",4,"reg2","figures")
 
 # Does not change the MinwageDummy coefficient and the adjusted R-squared much.
-# So stick with the initial regression model. OK.
+# So stick with the initial regression model. 
+rm(mod2,USGDP,unemp)
 
+# Results are reported in the Paper.pdf file
 # End
