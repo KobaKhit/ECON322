@@ -383,11 +383,11 @@ png("figures/ADF.png",units="px",height=450,width=920)
 
 par(mfrow=c(1,2))
 
-adf1<-summary(ur.df(regData[,1],type="drift")) # include intercept since mean is not 0
+adf1<-summary(ur.df(regData[,1],type="drift",lag=4)) # include intercept since mean is not 0
 textplot(capture.output(adf1)[c(-1:-10)],cex=1)
 title("Augmented Dickey Fuller Test\nfor the Unemployment Rate")
 
-adf2<-summary(ur.df(regData[,4],type="none")) # dont include intercept since mean
+adf2<-summary(ur.df(regData[,4],type="none",lag=4)) # dont include intercept since mean
 textplot(capture.output(adf2)[c(-1:-10)],cex=1)
 title("Augmented Dickey Fuller Test for the Percent Growth\nof the Food Services and Drinking Places Industry in PA")
 
@@ -409,7 +409,7 @@ names(mod$coefficients)<-c("(Intercept)",
                            "CrisisMonth",
                            "MinimumWage(1)")
   # create table in latex and save to pdf
-tex2pdf(mod,title="Regression output",3,"reg","figures")
+tex2pdf(mod,title="Regression output",1,"reg","figures")
 
 # Autocorrelation in the variables
 png("figures/SCVars.png",units="px",height=380,width=800) #save plot as png
@@ -431,7 +431,7 @@ abline(h=0,lty=2)
 dev.off()
 
 # Test for autocorellation in the residuals of the model
-png("figures/SCResid.png",units="px",height=350,width=480)
+png("figures/SCResid.png",units="px",height=300,width=480)
 
 acf(mod$residuals,main="")
 title("Serial correlation of the model's residuals",cex.main=0.8)
@@ -449,8 +449,46 @@ USGDP$PerGrowth<-c((USGDP[-97,2]-USGDP[-1,2])/USGDP[-1,2]*100,0)
 
 regData$USGDPGrowth<-USGDP[-nrow(USGDP),]$PerGrowth
 
-cor(regData[,4],regData[,5])
+# Summary of US GDP growth
+temp<-names(regData)
+names(regData)[c(1,4,5)]<-c("Unemployment rate", "Food services and drinking places industry growth, %", "US GDP percent growth")
 
+tex2pdf(regData[-93:-96,c(1,4,5)],title="Descriptive statistics",1,"sum2","figures")
+
+names(regData)<-temp
+rm(temp)
+
+# Plot the US GDP growth
+grBreaks<-dput(rownames(regData)[seq(1, length(rownames(regData)), 3)])
+ggplot(regData,aes(x=rownames(regData),y=USGDPGrowth)) +
+  ggtitle("US GDP percent growth") +
+  theme(plot.title = element_text(size=18,face="bold"))+
+  xlab("Period")+ylab("Percent")+
+  geom_point()+
+  geom_line(aes(y=USGDPGrowth,group=1))+
+  scale_x_discrete(breaks=grBreaks,labels=grBreaks) +
+  theme(axis.text.x=element_text(angle = 75, hjust = 1),
+        axis.text=element_text(size=12),
+        axis.title=element_text(size=14,face="bold"))
+
+# Save plot
+dev.copy(png,"figures/USGDPGrowth.png",units="px",height=300,width=600)
+dev.off()
+
+rm(grBreaks)
+
+# Stationarity of US GDP growth
+summary(ur.df(regData[,5],type="none",lag=10,selectlags="AIC"))
+
+# Check multicollinearity between foodIndGrowth and USDGDP growth
+multiCor<-cor(regData[,c(1,4,5)])
+rownames(multiCor)<-c("Unemployment rate", "Food industry growth, %", "US GDP growth, %")
+colnames(multiCor)<-c("Unemployment rate", "Food industry growth, %", "US GDP growth, %")
+
+tex2pdf(multiCor,title="Correlation matrix",2,"CorMatr","figures")
+rm(multiCor)
+
+# Run regresion with GDP growth instead of crisis month dummy
 mod2<-lm(unemp~tslag(unemp,1) + tslag(foodIndGrowth,2) + tslag(USGDPGrowth,4) +  tslag(minwageDummy,1),regData)
 summary(mod2)
 
@@ -460,11 +498,19 @@ names(mod2$coefficients)<-c("(Intercept)",
                            "USGDPGrowth(4)",
                            "MinimumWage(1)")
   # create table in latex and save to pdf
-tex2pdf(mod2,title="Regression output with USGDPGrowth",4,"reg2","figures")
+tex2pdf(mod2,title="Regression output with US GDP Growth",3,"reg2","figures")
 
 # Does not change the MinwageDummy coefficient and the adjusted R-squared much.
 # So stick with the initial regression model. 
 rm(mod2,USGDP,unemp)
+
+# Plot the residuals 
+png("figures/Resid2.png",units="px",height=380,width=800)
+
+plot(mod$residuals,main="Residuals of the model with the US GDP growth", ylab="Residuals")
+abline(h=0,lty=2)
+
+dev.off()
 
 # Results are reported in the Paper.pdf file
 # End
